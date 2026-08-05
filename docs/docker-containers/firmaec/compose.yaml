@@ -1,0 +1,226 @@
+name: uta-electronic-signature
+
+services:
+  firmaec-postgresql:
+    image: ${POSTGRES_IMAGE:-postgres:17.10-bookworm}
+    container_name: firmaec-postgresql
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-firmadigital}
+      POSTGRES_USER: ${POSTGRES_USER:-firmadigital}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets:
+      - postgres_password
+    volumes:
+      - type: bind
+        source: ${FIRMAEC_DATA_DIR:-/var/lib/uta-containers/firmaec-postgresql}
+        target: /var/lib/postgresql/data
+    networks:
+      - firmaec-db
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - max_connections=30
+      - -c
+      - work_mem=4MB
+      - -c
+      - log_min_duration_statement=1000
+    mem_limit: 640m
+    mem_reservation: 256m
+    memswap_limit: 640m
+    cpus: 0.75
+    pids_limit: 150
+    stop_grace_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    labels:
+      ec.edu.uta.stack: electronic-signature
+      ec.edu.uta.component: firmaec-database
+
+  firmaec-wildfly:
+    image: ${FIRMAEC_IMAGE:-uta/firmaec-wildfly:5.1.0-wf40.0.1}
+    build:
+      context: .
+      dockerfile: wildfly/Dockerfile
+    container_name: firmaec-wildfly
+    restart: unless-stopped
+    depends_on:
+      firmaec-postgresql:
+        condition: service_healthy
+    environment:
+      JAVA_OPTS: >-
+        -Xms384m
+        -Xmx1280m
+        -XX:MaxMetaspaceSize=384m
+        -XX:+UseG1GC
+        -Djava.net.preferIPv4Stack=true
+        -Djava.awt.headless=true
+      POSTGRES_DB: ${POSTGRES_DB:-firmadigital}
+      POSTGRES_USER: ${POSTGRES_USER:-firmadigital}
+      WILDFLY_MANAGEMENT_USER: ${WILDFLY_MANAGEMENT_USER:-uta-console-admin}
+    secrets:
+      - postgres_password
+      - wildfly_management_password
+    ports:
+      - "127.0.0.1:${FIRMAEC_PUBLIC_PORT:-8180}:8080"
+      - "127.0.0.1:${WILDFLY_MANAGEMENT_PORT:-9990}:9990"
+    networks:
+      - signature-internal
+      - firmaec-db
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+      - /opt/jboss/wildfly/standalone/tmp:size=128m,uid=1000,gid=0,mode=770
+    healthcheck:
+      test:
+        - CMD
+        - /opt/jboss/container/healthcheck.sh
+      interval: 60s
+      timeout: 15s
+      retries: 10
+      start_period: 120s
+    mem_limit: 2304m
+    mem_reservation: 1024m
+    memswap_limit: 2304m
+    cpus: 1.50
+    pids_limit: 400
+    stop_grace_period: 90s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    labels:
+      ec.edu.uta.stack: electronic-signature
+      ec.edu.uta.component: firmaec-application
+
+  signature-api:
+    image: ${SIGNATURE_API_IMAGE:-uta/electronic-signature-api:1.0.0}
+    build:
+      context: ../../..
+      dockerfile: docs/docker-containers/firmaec/signature-api/Dockerfile
+    container_name: signature-api
+    restart: unless-stopped
+    depends_on:
+      firmaec-wildfly:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      RepositoryUta__BaseUrl: ${REPOSITORY_UTA_BASE_URL:-https://serviciospruebas.uta.edu.ec/WsSeguUta}
+      RepositoryUta__JwksUrl: /.well-known/jwks.json
+      RepositoryUta__Issuer: WsSeguUta.AuthSystem.API
+      RepositoryUta__Audience: WsSeguUta.AuthSystem.API
+      RepositoryUta__ServiceClientId: uta-signature
+      HrBackend__BaseUrl: ${HR_BACKEND_BASE_URL:-https://serviciospruebas.uta.edu.ec/WsUtaSystem}
+      HrBackend__SignatureDirectoryCode: UTA_SIGNATURES
+      HrBackend__SignaturePhysicalPath: ${SIGNATURE_PHYSICAL_PATH:-\\nas11.uta.edu.ec\ArchUTA1\HR\electronic_signatures\}
+      Frontend__PublicBaseUrl: ${FRONTEND_PUBLIC_BASE_URL:-https://portal.uta.edu.ec/WsUtaSystem}
+      FirmaEc__Enabled: "true"
+      FirmaEc__Mode: DECENTRALIZED
+      FirmaEc__ServiceBaseUrl: http://firmaec-wildfly:8080/servicio/
+      # NO es la URL del callback de documentos firmados (esa es sistema.url en la BD de
+      # FirmaEC, registrada aparte, server-to-server). Este valor se manda como query param
+      # `url=` en cada enlace firmaec:// y el cliente de escritorio (>=5.1.0) lo usa para un
+      # pre-chequeo propio: GET {este valor}/url/{token}, esperando el texto "Url habilitada".
+      # Por eso debe ser la base pública que Apache mapea a la API REST de FirmaEC
+      # (/firmaec/ -> WildFly /api/), NO la ruta profunda de nuestro propio callback — usar
+      # esa ruta aquí rompe el pre-chequeo y el cliente muestra "URL no encontrado y sin
+      # autorización de FirmaEC" (verificado 2026-08-03: la 4.1.0 no hacía este chequeo, la
+      # 5.1.0 sí, por eso empezó a fallar solo tras la autoactualización del cliente).
+      FirmaEc__PublicApiBaseUrl: https://portal.uta.edu.ec/firmaec
+      FirmaEc__ProtocolScheme: firmaec
+      FirmaEc__SystemCode: ${FIRMAEC_SYSTEM_CODE:-UTA-SIGNATURE}
+      FirmaEc__CertificateType: "2"
+      FirmaEc__TokenLifetimeMinutes: "5"
+      FirmaEc__MaxDocumentBytes: "15728640"
+      FirmaEc__StampEnabled: ${FIRMAEC_STAMP_ENABLED:-false}
+      FirmaEc__StampType: ${FIRMAEC_STAMP_TYPE:-QR}
+      FirmaEc__StampLlx: ${FIRMAEC_STAMP_LLX:-222}
+      FirmaEc__StampLly: ${FIRMAEC_STAMP_LLY:-85}
+      FirmaEc__StampWidth: ${FIRMAEC_STAMP_WIDTH:-130}
+      FirmaEc__StampHeight: ${FIRMAEC_STAMP_HEIGHT:-36}
+      Cors__AllowedOrigins__0: https://portal.uta.edu.ec
+    secrets:
+      - signature_database_connection
+      - repositoryuta_service_client_secret
+      - firmaec_client_api_key
+      - firmaec_callback_api_key
+    ports:
+      - "127.0.0.1:${SIGNATURE_API_PORT:-5060}:8080"
+    networks:
+      - signature-internal
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - --silent
+        - --show-error
+        - http://127.0.0.1:8080/health/live
+      interval: 30s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    mem_limit: 768m
+    mem_reservation: 256m
+    memswap_limit: 768m
+    cpus: 1.00
+    pids_limit: 200
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    labels:
+      ec.edu.uta.stack: electronic-signature
+      ec.edu.uta.component: signature-api
+
+networks:
+  signature-internal:
+    name: uta-signature-internal
+    driver: bridge
+  firmaec-db:
+    name: uta-firmaec-db
+    driver: bridge
+    internal: true
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
+  wildfly_management_password:
+    file: ./secrets/wildfly_management_password
+  signature_database_connection:
+    file: ./secrets/signature_database_connection
+  repositoryuta_service_client_secret:
+    file: ./secrets/repositoryuta_service_client_secret
+  firmaec_client_api_key:
+    file: ./secrets/firmaec_client_api_key
+  firmaec_callback_api_key:
+    file: ./secrets/firmaec_callback_api_key

@@ -1,0 +1,7 @@
+artifacts/*.war
+artifacts/*.jar
+secrets/*
+!.gitkeep
+exports/
+.env
+

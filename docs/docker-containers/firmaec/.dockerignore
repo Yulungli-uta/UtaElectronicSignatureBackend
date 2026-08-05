@@ -1,0 +1,6 @@
+.env
+secrets/
+exports/
+*.tar
+*.tar.gz
+*.dump

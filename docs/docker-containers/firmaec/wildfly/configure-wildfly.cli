@@ -1,0 +1,31 @@
+embed-server --std-out=echo
+
+/subsystem=datasources/jdbc-driver=postgresql:add( \
+    driver-name=postgresql, \
+    driver-module-name=org.postgresql, \
+    driver-class-name=org.postgresql.Driver, \
+    driver-xa-datasource-class-name=org.postgresql.xa.PGXADataSource)
+
+data-source add \
+    --name=FirmaDigitalDS \
+    --jndi-name=java:/FirmaDigitalDS \
+    --driver-name=postgresql \
+    --connection-url=jdbc:postgresql://firmaec-postgresql:5432/firmadigital \
+    --user-name=firmadigital \
+    --password=${env.FIRMAEC_DB_PASSWORD} \
+    --min-pool-size=2 \
+    --max-pool-size=15 \
+    --validate-on-match=true \
+    --background-validation=false \
+    --valid-connection-checker-class-name=org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLValidConnectionChecker \
+    --exception-sorter-class-name=org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLExceptionSorter \
+    --enabled=true
+
+/system-property=firmadigital-servicio.url:add(value=http://127.0.0.1:8080/servicio)
+/system-property=firmadigital-servicio-mobile.url:add(value=http://127.0.0.1:8080/servicio)
+/system-property=firmadigital-api.request.size:add(value=40960)
+/system-property=firmadigital-servicio.request.size:add(value=40960)
+/subsystem=undertow/server=default-server/http-listener=default:write-attribute(name=max-post-size,value=41943040)
+/core-service=management/management-interface=http-interface:write-attribute(name=allowed-origins,value=["https://portal.uta.edu.ec"])
+
+stop-embedded-server

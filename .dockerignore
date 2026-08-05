@@ -1,0 +1,10 @@
+**/bin
+**/obj
+.git
+.vs
+.vscode
+tests
+database
+docs/docker-containers/firmaec/artifacts
+**/*.user
+**/*.suo

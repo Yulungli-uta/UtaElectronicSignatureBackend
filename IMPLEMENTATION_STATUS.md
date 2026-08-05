@@ -1,0 +1,23 @@
+# Implementation status
+
+- Solution and Clean Architecture projects: created.
+- SGN database scripts: created and applied to the test database.
+- Domain, EF Core context and initial API: implemented.
+- RepositoryUta permissions/roles/menu: seeded in the test database.
+- HrFrontend routes, API configuration, FirmaEC launcher UI and validation page: implemented and production build verified.
+- Backend and automated tests: build and tests verified.
+- Process listing, signer inbox, detail, progress, participant maintenance, rejection, cancellation, reminders, audit, document-version metadata and integration-reference lookup are implemented.
+- Request-body idempotency validation, serializable process numbering, sequential signing availability, process/session expiration and notification retries are implemented.
+- Resource ownership/participant checks are enforced in application services in addition to institutional permission policies.
+- HTTPS callback allowlisting, HMAC delivery, retry/backoff and SSRF checks are implemented for source-system events.
+- Original-document creation UI uploads through the existing HrBackend document endpoint, calculates SHA-256 in the browser and then creates the signing request.
+- Document-version download is proxied through the verified HrBackend `/api/v1/rh/documents/download/{fileGuid}` endpoint after resource authorization.
+- HrBackend reuses the verified existing email route `/api/v1/rh/email/send-by-guid`; no duplicate internal endpoint was created.
+- The decentralized FirmaEC adapter implements the verified local contracts: `POST /servicio/documentos`, the `firmaec://` desktop launch URI and the authenticated signed-document callback. It remains disabled until the UTA system record, API keys, HrBackend storage directory and end-to-end test are completed.
+- FirmaEC callback input is authenticated with its dedicated `X-API-KEY`, size-limited, checked as PDF, validated against the session signer and certificate flags, stored through HrBackend, and chained as a new immutable SHA-256 document version.
+- The decentralized FirmaEC Docker package, operational scripts, image export/import workflow and migration documentation are available under `docs/docker-containers/firmaec`.
+- `firmaec-wildfly` and `firmaec-postgresql` were deployed on `10.102.12.195`; both health checks pass, both WAR deployments report `OK`, the datasource is connected and the initial nine-table schema exists.
+- FirmaEC remains bound to host loopback port `8180` and its public API is reverse-proxied by Apache at `https://portal.uta.edu.ec/firmaec/`; the internal `/servicio` context and administrative ports remain private.
+- The HTTPS proxy responds successfully, while UTA system/version records and the .NET callback remain pending.
+- After the host was expanded to 8 GiB RAM, FirmaEC was resized and verified: WildFly has a 2.25 GiB hard limit with a 1.25 GiB JVM heap, PostgreSQL has a 640 MiB hard limit with 128 MiB shared buffers, container swap is disabled, and more than 5.5 GiB remained available after restart.
+- WildFly management can be exposed temporarily through `https://portal.uta.edu.ec/firmaec-console/` with simultaneous source-IP, expiration-time and WildFly credential controls; port 9990 remains bound exclusively to host loopback and the proxy is automatically removed. WildFly explicitly allows only `https://portal.uta.edu.ec` as the management origin so authenticated console POST requests work through Apache.
