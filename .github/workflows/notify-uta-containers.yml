@@ -1,0 +1,26 @@
+name: Notify uta-containers
+
+# Dispara el pipeline de build/scan/publish en uta-containers (repo
+# privado de infraestructura) cuando este repo recibe push a main. El
+# Dockerfile/CI viven en uta-containers, no aquí — ver ese repo para el
+# pipeline completo. Requiere el secret UTA_CONTAINERS_DISPATCH_TOKEN
+# (PAT fine-grained, alcance solo a Yulungli-uta/uta-containers,
+# permiso Contents: Read and write).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "UtaElectronicSignature.sln"
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger build in uta-containers
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.UTA_CONTAINERS_DISPATCH_TOKEN }}
+          repository: Yulungli-uta/uta-containers
+          event-type: signature-backend-push
