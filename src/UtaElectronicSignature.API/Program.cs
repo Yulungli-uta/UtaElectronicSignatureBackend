@@ -36,9 +36,18 @@ builder.Services.AddHttpClient<IFirmaEcClient,FirmaEcClient>((services,client)=>
  var options=services.GetRequiredService<Microsoft.Extensions.Options.IOptions<FirmaEcOptions>>().Value;
  client.Timeout=TimeSpan.FromSeconds(options.TimeoutSeconds);
 });
+// Unico lugar que arma un BaseAddress de HttpClient a partir de una URL de config.
+// BaseAddress DEBE terminar en "/" y las rutas relativas usadas con ese cliente NO
+// deben empezar con "/": si el host expone la API bajo un subpath (ej. /WsSeguUta),
+// una ruta relativa con "/" inicial descarta ese subpath en vez de anexarse (regla
+// de combinacion de URIs de HttpClient). Todo cliente institucional nuevo debe
+// construir su BaseAddress con este helper, nunca con "new Uri(valorCrudo)".
+static Uri NormalizeBaseAddress(string value)=>new(value.TrimEnd('/')+"/");
+
 var authBase=builder.Configuration["RepositoryUta:BaseUrl"]??throw new InvalidOperationException("RepositoryUta:BaseUrl es obligatorio.");
-builder.Services.AddHttpClient("RepositoryUta",c=>c.BaseAddress=new Uri(authBase)).AddStandardResilienceHandler();
-builder.Services.AddHttpClient("HrBackend",c=>c.BaseAddress=new Uri(builder.Configuration["HrBackend:BaseUrl"]??throw new InvalidOperationException("HrBackend:BaseUrl es obligatorio."))).AddStandardResilienceHandler();
+var hrBackendBase=builder.Configuration["HrBackend:BaseUrl"]??throw new InvalidOperationException("HrBackend:BaseUrl es obligatorio.");
+builder.Services.AddHttpClient("RepositoryUta",c=>c.BaseAddress=NormalizeBaseAddress(authBase)).AddStandardResilienceHandler();
+builder.Services.AddHttpClient("HrBackend",c=>c.BaseAddress=NormalizeBaseAddress(hrBackendBase)).AddStandardResilienceHandler();
 builder.Services.AddHttpClient("Callbacks",c=>c.Timeout=TimeSpan.FromSeconds(builder.Configuration.GetValue("Callbacks:TimeoutSeconds",15))).AddStandardResilienceHandler();
 builder.Services.AddSingleton<ServiceTokenProvider>();builder.Services.AddScoped<HrBackendClient>();builder.Services.AddScoped<DocumentAccessService>();builder.Services.AddHostedService<OutboxWorker>();builder.Services.AddHostedService<SignatureMaintenanceWorker>();builder.Services.AddHostedService<CallbackOutboxWorker>();
 var jwksPath=builder.Configuration["RepositoryUta:JwksUrl"]??"/.well-known/jwks.json";

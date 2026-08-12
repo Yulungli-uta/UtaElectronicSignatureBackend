@@ -44,7 +44,7 @@ public sealed record ValidatedSigner(string FullName, string Identification, Dat
 // La contraseña se usa unicamente en memoria para abrir el archivo y nunca se persiste ni
 // se registra en logs.
 public sealed record CertificateValidationResult(string Subject, string? Identification, string Issuer, DateTimeOffset ValidFrom, DateTimeOffset ValidUntil, bool IsCurrentlyValid, string SerialNumber);
-public sealed record ProcessListItem(long ProcessId, Guid ProcessGuid, string ProcessNumber, string Title, string Status, string WorkflowType, DateTimeOffset CreatedAt, DateTimeOffset? ExpiresAt, decimal ProgressPercentage, string? MyParticipantStatus, long? MyParticipantId);
+public sealed record ProcessListItem(long ProcessId, Guid ProcessGuid, string ProcessNumber, string Title, string Status, string WorkflowType, DateTimeOffset CreatedAt, DateTimeOffset? ExpiresAt, decimal ProgressPercentage, string? MyParticipantStatus, long? MyParticipantId, string CreatorEmail);
 public sealed record ProcessDetail(long ProcessId, Guid ProcessGuid, string ProcessNumber, string Title, string? Description, string Status, string WorkflowType, string CreatorEmail, DateTimeOffset CreatedAt, DateTimeOffset? ExpiresAt, int CurrentDocumentVersion, IReadOnlyList<SignerProgress> Signers);
 public sealed record ParticipantCreateRequest(long? PersonId, long? EmployeeId, string Identification, string FullName, string Email, string Role, bool Required, int? Order, bool IsExternal = false);
 public sealed record PublicParticipantInfoResponse(long ParticipantId, string FullName, string ProcessNumber, string Title, string? Description, string CreatorEmail, string Status, bool AlreadyUsed);

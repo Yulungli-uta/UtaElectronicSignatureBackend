@@ -44,7 +44,7 @@ public sealed class PermissionHandler(IHttpClientFactory clients):AuthorizationH
         if(roles.Length==0)return;
         var client=clients.CreateClient("RepositoryUta");
         var query=string.Join("&",roles.Select(role=>$"roles={Uri.EscapeDataString(role)}"));
-        var result=await client.GetFromJsonAsync<PermissionEnvelope>($"/api/role-permissions/effective?{query}");
+        var result=await client.GetFromJsonAsync<PermissionEnvelope>($"api/role-permissions/effective?{query}");
         var permissions=result?.Data??[];
         var allowed=permissions.Contains(requirement.Code,StringComparer.OrdinalIgnoreCase)
             ||permissions.Contains("ADMIN.ACCESS",StringComparer.OrdinalIgnoreCase)

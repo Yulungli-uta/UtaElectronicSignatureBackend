@@ -7,6 +7,7 @@
 - HrFrontend routes, API configuration, FirmaEC launcher UI and validation page: implemented and production build verified.
 - Backend and automated tests: build and tests verified.
 - Process listing, signer inbox, detail, progress, participant maintenance, rejection, cancellation, reminders, audit, document-version metadata and integration-reference lookup are implemented.
+- The administrative all-processes view is implemented through `GET /api/v1/signature/processes/all` under `ProcessReadAll`; it returns the latest 500 processes with participants and creator email, and HrFrontend exposes it at `/signatures/processes/all` without creator-only actions.
 - Request-body idempotency validation, serializable process numbering, sequential signing availability, process/session expiration and notification retries are implemented.
 - Resource ownership/participant checks are enforced in application services in addition to institutional permission policies.
 - HTTPS callback allowlisting, HMAC delivery, retry/backoff and SSRF checks are implemented for source-system events.

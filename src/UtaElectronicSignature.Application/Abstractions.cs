@@ -32,6 +32,7 @@ public interface ISigningProcessService
 {
     Task<CreateProcessResponse> CreateAsync(CreateIntegrationRequest request, Guid idempotencyKey, string sourceSystem, CancellationToken ct);
     Task<IReadOnlyList<ProcessListItem>> ListAsync(bool inbox, CancellationToken ct);
+    Task<IReadOnlyList<ProcessListItem>> ListAllAsync(CancellationToken ct);
     Task<ProcessDetail?> GetAsync(long id, CancellationToken ct);
     Task<ProcessProgress?> GetProgressAsync(long id, CancellationToken ct);
     Task CancelAsync(long id, CancellationToken ct);

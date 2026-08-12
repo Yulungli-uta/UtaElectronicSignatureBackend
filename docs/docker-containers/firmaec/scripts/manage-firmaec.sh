@@ -5,7 +5,16 @@ INSTALL_DIR="${UTA_CONTAINERS_DIR:-/opt/uta-containers/electronic-signature}"
 cd "${INSTALL_DIR}"
 
 compose() {
-  docker compose --env-file .env -f compose.yaml "$@"
+  # -f compose.yaml explícito desactivaba la fusión automática de Compose con
+  # compose.override.yaml (ej. el CORS temporal para localhost:5173, o los
+  # puertos de firmaec-wildfly) — cualquier recreación via este script la
+  # perdía en silencio. Se agrega el override explícitamente solo si existe,
+  # así el comportamiento no cambia una vez que se elimine antes de producción.
+  local files=(-f compose.yaml)
+  if [ -f compose.override.yaml ]; then
+    files+=(-f compose.override.yaml)
+  fi
+  docker compose --env-file .env "${files[@]}" "$@"
 }
 
 usage() {

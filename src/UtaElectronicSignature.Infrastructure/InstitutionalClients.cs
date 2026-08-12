@@ -19,7 +19,7 @@ public sealed class ServiceTokenProvider(IHttpClientFactory clients,IConfigurati
  public async Task<string> GetAsync(CancellationToken ct)
  {
   if(_token is not null&&_expiresAt>DateTimeOffset.UtcNow.AddMinutes(2))return _token;
-  var response=await clients.CreateClient("RepositoryUta").PostAsJsonAsync("/api/app-auth/token",new{
+  var response=await clients.CreateClient("RepositoryUta").PostAsJsonAsync("api/app-auth/token",new{
    clientId=config["RepositoryUta:ServiceClientId"],clientSecret=config["RepositoryUta:ServiceClientSecret"]},ct);
   response.EnsureSuccessStatusCode();
   using var json=JsonDocument.Parse(await response.Content.ReadAsStreamAsync(ct));
@@ -43,7 +43,7 @@ public sealed class HrBackendClient(IHttpClientFactory clients,ServiceTokenProvi
    bodyHtml=$"<h2>Proceso de firma completado</h2><p>El documento <strong>{System.Net.WebUtility.HtmlEncode(title)}</strong> ha sido firmado por todos los participantes.</p><p>Número de proceso: {System.Net.WebUtility.HtmlEncode(processNumber)}</p>",
    layoutSlug=config["HrBackend:FinalEmailLayoutSlug"]??"firma-electronica-final",
    attachments=new[]{new{storedFileGuid=fileGuid,fileName=$"{processNumber}-firmado.pdf",contentType="application/pdf"}}};
-  using var response=await client.PostAsJsonAsync("/api/v1/rh/email/send-by-guid",request,ct);response.EnsureSuccessStatusCode();
+  using var response=await client.PostAsJsonAsync("api/v1/rh/email/send-by-guid",request,ct);response.EnsureSuccessStatusCode();
  }
  public async Task SendReminderAsync(string recipient,string fullName,string processNumber,string title,string? description,CancellationToken ct)
  {
@@ -52,7 +52,7 @@ public sealed class HrBackendClient(IHttpClientFactory clients,ServiceTokenProvi
   var request=new{to=recipient,subject=$"Recordatorio de firma - {processNumber}",
    bodyHtml=$"<p>Estimado/a {System.Net.WebUtility.HtmlEncode(fullName)}, tiene pendiente la firma del documento <strong>{System.Net.WebUtility.HtmlEncode(title)}</strong>.</p>{descriptionHtml}<p>Número de proceso: {System.Net.WebUtility.HtmlEncode(processNumber)}</p>",
    layoutSlug=config["HrBackend:FinalEmailLayoutSlug"]??"firma-electronica-final",attachments=Array.Empty<object>()};
-  using var response=await client.PostAsJsonAsync("/api/v1/rh/email/send-by-guid",request,ct);response.EnsureSuccessStatusCode();
+  using var response=await client.PostAsJsonAsync("api/v1/rh/email/send-by-guid",request,ct);response.EnsureSuccessStatusCode();
  }
  public async Task SendExternalInvitationAsync(string recipient,string fullName,string processNumber,string title,string link,CancellationToken ct)
  {
@@ -63,12 +63,12 @@ public sealed class HrBackendClient(IHttpClientFactory clients,ServiceTokenProvi
     $"<p><a href=\"{System.Net.WebUtility.HtmlEncode(link)}\">Ver y firmar el documento</a></p>"+
     "<p>Este enlace es de un solo uso y expira en 72 horas.</p>",
    layoutSlug=config["HrBackend:FinalEmailLayoutSlug"]??"firma-electronica-final",attachments=Array.Empty<object>()};
-  using var response=await client.PostAsJsonAsync("/api/v1/rh/email/send-by-guid",request,ct);response.EnsureSuccessStatusCode();
+  using var response=await client.PostAsJsonAsync("api/v1/rh/email/send-by-guid",request,ct);response.EnsureSuccessStatusCode();
  }
  public async Task<byte[]> DownloadDocumentAsync(Guid fileGuid,CancellationToken ct)
  {
   var client=await AuthorizedClientAsync(ct);
-  using var response=await client.GetAsync($"/api/v1/rh/documents/download/{fileGuid}",HttpCompletionOption.ResponseHeadersRead,ct);
+  using var response=await client.GetAsync($"api/v1/rh/documents/download/{fileGuid}",HttpCompletionOption.ResponseHeadersRead,ct);
   response.EnsureSuccessStatusCode();
   var maximum=config.GetValue("HrBackend:MaxAttachmentBytes",15_728_640);
   if(response.Content.Headers.ContentLength>maximum)throw new InvalidOperationException("DOCUMENT_SIZE_LIMIT_EXCEEDED");
@@ -80,6 +80,7 @@ public sealed class HrBackendClient(IHttpClientFactory clients,ServiceTokenProvi
   byte[] document,
   string fileName,
   long signingProcessId,
+  string processNumber,
   CancellationToken ct)
  {
   var directoryCode=config["HrBackend:SignatureDirectoryCode"];
@@ -93,7 +94,10 @@ public sealed class HrBackendClient(IHttpClientFactory clients,ServiceTokenProvi
   form.Add(new StringContent(
    signingProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
    "EntityId");
-  form.Add(new StringContent("signed"),"RelativePath");
+  // Agrupa todas las versiones firmadas del mismo proceso en una sola carpeta,
+  // sin importar cual participante firmo cada version (no es "de" un firmante
+  // en particular, es "del" proceso).
+  form.Add(new StringContent($"signed/{processNumber}"),"RelativePath");
   if(int.TryParse(config["HrBackend:SignatureDocumentTypeId"],out var documentTypeId))
    form.Add(new StringContent(
     documentTypeId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
@@ -104,7 +108,7 @@ public sealed class HrBackendClient(IHttpClientFactory clients,ServiceTokenProvi
   form.Add(fileContent,"File",Path.GetFileName(fileName));
 
   using var response=await client.PostAsync(
-   "/api/v1/rh/documents/upload-single",
+   "api/v1/rh/documents/upload-single",
    form,
    ct);
   var payload=await response.Content.ReadFromJsonAsync<DocumentUploadResult>(

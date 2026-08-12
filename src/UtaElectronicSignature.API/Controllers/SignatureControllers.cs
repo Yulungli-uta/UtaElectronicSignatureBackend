@@ -19,6 +19,9 @@ public sealed class SignatureControllers(ISigningProcessService service):Control
     [HttpGet("processes"),Authorize(Policy=SignaturePermissions.ProcessReadOwn)]
     public async Task<ActionResult<IReadOnlyList<ProcessListItem>>> List(CancellationToken ct)=>Ok(await service.ListAsync(false,ct));
 
+    [HttpGet("processes/all"),Authorize(Policy=SignaturePermissions.ProcessReadAll)]
+    public async Task<ActionResult<IReadOnlyList<ProcessListItem>>> ListAll(CancellationToken ct)=>Ok(await service.ListAllAsync(ct));
+
     [HttpGet("inbox"),HttpGet("inbox/pending"),HttpGet("inbox/signed"),Authorize(Policy=SignaturePermissions.ProcessReadOwn)]
     public async Task<ActionResult<IReadOnlyList<ProcessListItem>>> Inbox(CancellationToken ct)=>Ok(await service.ListAsync(true,ct));
 

@@ -106,6 +106,18 @@ public sealed class SigningProcessService(
         return rows.Select(p=>ToListItem(p,uid,employee)).ToList();
     }
 
+    public async Task<IReadOnlyList<ProcessListItem>> ListAllAsync(CancellationToken ct)
+    {
+        var uid=current.UserId??throw new UnauthorizedAccessException();
+        var employee=current.EmployeeId;
+        var rows=await db.SigningProcesses.AsNoTracking()
+            .Include(x=>x.Participants)
+            .OrderByDescending(x=>x.CreatedAt)
+            .Take(500)
+            .ToListAsync(ct);
+        return rows.Select(p=>ToListItem(p,uid,employee)).ToList();
+    }
+
     public async Task<ProcessDetail?> GetAsync(long id,CancellationToken ct)
     {
         var process=await LoadProcessAsync(id,ct);
@@ -327,10 +339,15 @@ public sealed class SigningProcessService(
         if(signedDocument.Length<5||!signedDocument.AsSpan(0,5).SequenceEqual("%PDF-"u8))
             throw new ArgumentException("FirmaEC devolvió un archivo que no es PDF.");
 
+        var processNumber=await db.SigningProcesses
+            .Where(x=>x.SigningProcessID==session.SigningProcessID)
+            .Select(x=>x.ProcessNumber)
+            .SingleAsync(ct);
         var fileGuid=await hrBackend.UploadSignedDocumentAsync(
             signedDocument,
             request.NombreDocumento,
             session.SigningProcessID,
+            processNumber,
             ct);
         var sha256=Convert.ToHexString(SHA256.HashData(signedDocument));
         await CompleteSigningAsync(
@@ -391,7 +408,7 @@ public sealed class SigningProcessService(
 
         var doc=p.Documents.Single();
         var previous=doc.Versions.Single(x=>x.DocumentVersionID==p.CurrentDocumentVersionID);
-        var fileGuid=await hrBackend.UploadSignedDocumentAsync(bytes,$"firmado-{p.ProcessNumber}.pdf",p.SigningProcessID,ct);
+        var fileGuid=await hrBackend.UploadSignedDocumentAsync(bytes,$"firmado-{p.ProcessNumber}.pdf",p.SigningProcessID,p.ProcessNumber,ct);
         await CompleteWithNewVersionAsync(p,doc,previous,signer,fileGuid,SHA256.HashData(bytes),$"upload:{signer.SigningParticipantID}",ct);
     }
 
@@ -523,7 +540,7 @@ public sealed class SigningProcessService(
     private static ProcessListItem ToListItem(SigningProcess p,Guid uid,long? employee)
     {
         var mine=p.Participants.FirstOrDefault(x=>x.UserID==uid||(employee!=null&&x.EmployeeID==employee));
-        return new(p.SigningProcessID,p.ProcessGuid,p.ProcessNumber,p.Title,p.Status.ToString().ToUpperInvariant(),p.WorkflowType.ToString().ToUpperInvariant(),p.CreatedAt,p.ExpiresAt,p.Progress,mine?.Status.ToString().ToUpperInvariant(),mine?.SigningParticipantID);
+        return new(p.SigningProcessID,p.ProcessGuid,p.ProcessNumber,p.Title,p.Status.ToString().ToUpperInvariant(),p.WorkflowType.ToString().ToUpperInvariant(),p.CreatedAt,p.ExpiresAt,p.Progress,mine?.Status.ToString().ToUpperInvariant(),mine?.SigningParticipantID,p.CreatorEmail);
     }
     private static ProcessDetail ToDetail(SigningProcess p)=>new(p.SigningProcessID,p.ProcessGuid,p.ProcessNumber,p.Title,p.Description,p.Status.ToString().ToUpperInvariant(),p.WorkflowType.ToString().ToUpperInvariant(),p.CreatorEmail,p.CreatedAt,p.ExpiresAt,p.Documents.SelectMany(x=>x.Versions).Max(x=>(int?)x.SequenceNumber)??0,p.Participants.Select(ToSigner).ToList());
 }
