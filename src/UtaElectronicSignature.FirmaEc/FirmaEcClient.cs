@@ -87,7 +87,7 @@ public sealed class FirmaEcClient(
                 "FIRMAEC_INVALID_RESPONSE: FirmaEC no devolvió un token de firma válido.");
         }
 
-        var launchUrl = BuildLaunchUrl(token, request.Reason, request.Page, request.Llx, request.Lly, request.Width, request.Height);
+        var launchUrl = BuildLaunchUrl(token, request.Reason, request.Page, request.Llx, request.Lly, request.Width, request.Height, request.CertificateType);
         var transactionId = Convert.ToHexString(
             SHA256.HashData(Encoding.UTF8.GetBytes(token)));
         return new(
@@ -156,12 +156,19 @@ public sealed class FirmaEcClient(
         }
     }
 
-    private string BuildLaunchUrl(string token, string? reason, int? page, int? llx, int? lly, int? width, int? height)
+    private string BuildLaunchUrl(string token, string? reason, int? page, int? llx, int? lly, int? width, int? height, FirmaEcCertificateType? certificateType)
     {
+        // certificateType es lo que eligió el firmante en el selector del frontend (Token o
+        // Archivo). Si no viene (llamador viejo que aún no manda el campo), se conserva el
+        // comportamiento de siempre: el default fijo de configuración.
+        var resolvedCertificateType = certificateType.HasValue
+            ? (int)certificateType.Value
+            : _options.CertificateType;
+
         var query = new List<string>
         {
             $"token={Uri.EscapeDataString(token)}",
-            $"tipo_certificado={_options.CertificateType}",
+            $"tipo_certificado={resolvedCertificateType}",
             $"url={Uri.EscapeDataString(_options.PublicApiBaseUrl.TrimEnd('/'))}"
         };
         if (_options.StampEnabled)

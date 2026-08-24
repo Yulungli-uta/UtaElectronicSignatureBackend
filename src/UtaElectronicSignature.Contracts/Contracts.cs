@@ -10,13 +10,25 @@ public sealed record CreateProcessResponse(long ProcessId, Guid ProcessGuid, str
 public sealed record SignerProgress(long ParticipantId, string Identification, string FullName, string Status, DateTimeOffset? SignedAt);
 public sealed record ProcessProgress(long ProcessId, string ProcessNumber, string Status, int TotalRequiredSigners, int SignedRequiredSigners, decimal ProgressPercentage, int CurrentDocumentVersion, IReadOnlyList<SignerProgress> Signers, long? MyParticipantId);
 public sealed record StartSigningResponse(Guid SigningSessionId, string LaunchUrl, DateTimeOffset ExpiresAt);
+// Valores exactos que espera el parametro "tipo_certificado" del enlace firmaec://
+// (confirmado contra el proyecto de referencia oficial firmadigital-tester): la app de
+// escritorio FirmaEC inicializa la sesion de firma en UNO de estos dos modos — aunque
+// muestre ambas pestañas en su UI, la que no corresponde al modo de la sesion no responde.
+public enum FirmaEcCertificateType
+{
+    Token = 1,
+    Archivo = 2,
+}
+
 // Posicion del sello elegida por el usuario en el visor interactivo del frontend (opcional:
 // si se omite, se usa la posicion estatica por defecto de FirmaEc:Stamp* en configuracion).
 // El tamaño del cuadro queda estandarizado (ver FirmaEcOptions.StampWidth/Height); solo la
 // esquina inferior izquierda (Llx,Lly) y la pagina son elegibles.
-public sealed record StartSigningRequest(int? Page, int? Llx, int? Lly, int? Width = null, int? Height = null);
+// CertificateType: opcional por compatibilidad hacia atras (llamadores viejos que no lo
+// mandan caen al default de FirmaEcOptions.CertificateType, igual que antes de este campo).
+public sealed record StartSigningRequest(int? Page, int? Llx, int? Lly, int? Width = null, int? Height = null, FirmaEcCertificateType? CertificateType = null);
 public sealed record CompleteSigningRequest(Guid SigningSessionId, long BaseDocumentVersionId, Guid SignedFileGuid, string Sha256);
-public sealed record FirmaEcCreateRequest(Guid SessionId, string Identification, string FileName, byte[] Document, string? Reason, int? Page = null, int? Llx = null, int? Lly = null, int? Width = null, int? Height = null);
+public sealed record FirmaEcCreateRequest(Guid SessionId, string Identification, string FileName, byte[] Document, string? Reason, int? Page = null, int? Llx = null, int? Lly = null, int? Width = null, int? Height = null, FirmaEcCertificateType? CertificateType = null);
 public sealed record FirmaEcCreateResult(string TransactionId, string LaunchUrl, DateTimeOffset ExpiresAt);
 public sealed record FirmaEcSignedDocumentCallback(
     string Cedula,

@@ -272,7 +272,7 @@ public sealed class SigningProcessService(
                     firmaEcFileName,
                     bytes,
                     $"Firma electrónica del proceso {p.ProcessNumber}",
-                    position?.Page,position?.Llx,position?.Lly,position?.Width,position?.Height),
+                    position?.Page,position?.Llx,position?.Lly,position?.Width,position?.Height,position?.CertificateType),
                 ct);
             session.FirmaEcTransactionID=result.TransactionId;
             session.Status="LAUNCHED";
@@ -472,7 +472,7 @@ public sealed class SigningProcessService(
             var firmaEcFileName=$"firmaec-{session.SigningSessionID:N}.pdf";
             var result=await firmaEc.CreateSigningRequestAsync(
                 new(session.SigningSessionID,signer.Identification,firmaEcFileName,bytes,$"Firma electrónica del proceso {p.ProcessNumber}",
-                    position?.Page,position?.Llx,position?.Lly,position?.Width,position?.Height),
+                    position?.Page,position?.Llx,position?.Lly,position?.Width,position?.Height,position?.CertificateType),
                 ct);
             session.FirmaEcTransactionID=result.TransactionId;session.Status="LAUNCHED";session.ExpiresAt=result.ExpiresAt;
             await db.SaveChangesAsync(ct);
