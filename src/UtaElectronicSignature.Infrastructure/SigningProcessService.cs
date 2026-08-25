@@ -88,7 +88,8 @@ public sealed class SigningProcessService(
         if(request.Process.NotifyOnCreate)
             foreach(var participant in process.Participants.Where(x=>!x.IsExternal))
                 db.OutboxMessages.Add(new OutboxMessage{Type="SIGNATURE_REMINDER_EMAIL",Payload=JsonSerializer.Serialize(new{
-                    process.ProcessNumber,process.Title,process.Description,Email=participant.Email,participant.FullName})});
+                    process.ProcessNumber,process.Title,process.Description,Email=participant.Email,participant.FullName,
+                    Link=BuildInternalSignLink(process.SigningProcessID)})});
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return Map(process,1);
@@ -177,7 +178,8 @@ public sealed class SigningProcessService(
                     signer.Email,signer.FullName,p.ProcessNumber,p.Title,Link=BuildExternalSignLink(signer.SigningParticipantID,rawToken)})});
             }
             else
-                db.OutboxMessages.Add(new OutboxMessage{Type="SIGNATURE_REMINDER_EMAIL",Payload=JsonSerializer.Serialize(new{p.SigningProcessID,p.ProcessNumber,p.Title,p.Description,signer.Email,signer.FullName})});
+                db.OutboxMessages.Add(new OutboxMessage{Type="SIGNATURE_REMINDER_EMAIL",Payload=JsonSerializer.Serialize(new{p.SigningProcessID,p.ProcessNumber,p.Title,p.Description,signer.Email,signer.FullName,
+                    Link=BuildInternalSignLink(p.SigningProcessID)})});
         }
         AddEvent(id,"REMINDER_REQUESTED",null);await db.SaveChangesAsync(ct);
     }
@@ -515,6 +517,12 @@ public sealed class SigningProcessService(
 
     private string BuildExternalSignLink(long participantId,string rawToken)=>
         $"{config["Frontend:PublicBaseUrl"]?.TrimEnd('/')}/firma-externa/{participantId}?token={rawToken}";
+
+    // Equivalente interno de BuildExternalSignLink: el firmante interno ya tiene sesion en
+    // el portal (a diferencia del externo, que no tiene cuenta), asi que el enlace va
+    // directo a la pantalla de firma del proceso en vez de un token de un solo uso.
+    private string BuildInternalSignLink(long processId)=>
+        $"{config["Frontend:PublicBaseUrl"]?.TrimEnd('/')}/signatures/processes/{processId}/sign";
 
     private static byte[] ParseHash(string? value)=>string.IsNullOrWhiteSpace(value)?SHA256.HashData([]):Convert.FromHexString(value);
     private static Guid ParseFirmaEcSessionId(string fileName)

@@ -45,12 +45,16 @@ public sealed class HrBackendClient(IHttpClientFactory clients,ServiceTokenProvi
    attachments=new[]{new{storedFileGuid=fileGuid,fileName=$"{processNumber}-firmado.pdf",contentType="application/pdf"}}};
   using var response=await client.PostAsJsonAsync("api/v1/rh/email/send-by-guid",request,ct);response.EnsureSuccessStatusCode();
  }
- public async Task SendReminderAsync(string recipient,string fullName,string processNumber,string title,string? description,CancellationToken ct)
+ public async Task SendReminderAsync(string recipient,string fullName,string processNumber,string title,string? description,string link,CancellationToken ct)
  {
   var client=await AuthorizedClientAsync(ct);
   var descriptionHtml=string.IsNullOrWhiteSpace(description)?"":$"<p>{System.Net.WebUtility.HtmlEncode(description)}</p>";
+  // Mensajes viejos del Outbox (encolados antes de este cambio) pueden llegar sin link -
+  // se omite el parrafo en vez de mandar un <a href=""> roto.
+  var linkHtml=string.IsNullOrWhiteSpace(link)?"":$"<p><a href=\"{System.Net.WebUtility.HtmlEncode(link)}\">Ver y firmar el documento</a></p>";
   var request=new{to=recipient,subject=$"Recordatorio de firma - {processNumber}",
-   bodyHtml=$"<p>Estimado/a {System.Net.WebUtility.HtmlEncode(fullName)}, tiene pendiente la firma del documento <strong>{System.Net.WebUtility.HtmlEncode(title)}</strong>.</p>{descriptionHtml}<p>Número de proceso: {System.Net.WebUtility.HtmlEncode(processNumber)}</p>",
+   bodyHtml=$"<p>Estimado/a {System.Net.WebUtility.HtmlEncode(fullName)}, tiene pendiente la firma del documento <strong>{System.Net.WebUtility.HtmlEncode(title)}</strong>.</p>{descriptionHtml}"+
+    $"<p>Número de proceso: {System.Net.WebUtility.HtmlEncode(processNumber)}</p>"+linkHtml,
    layoutSlug=config["HrBackend:FinalEmailLayoutSlug"]??"firma-electronica-final",attachments=Array.Empty<object>()};
   using var response=await client.PostAsJsonAsync("api/v1/rh/email/send-by-guid",request,ct);response.EnsureSuccessStatusCode();
  }
@@ -159,8 +163,11 @@ public sealed class OutboxWorker(IServiceScopeFactory scopes,ILogger<OutboxWorke
       if(m.Type=="SIGNATURE_FINAL_DOCUMENT_EMAIL")
        await hr.SendFinalDocumentAsync(r.GetProperty("RecipientEmail").GetString()!,r.GetProperty("ProcessNumber").GetString()!,r.GetProperty("Title").GetString()!,r.GetProperty("FileGuid").GetGuid(),stoppingToken);
       else if(m.Type=="SIGNATURE_REMINDER_EMAIL")
+       // Link puede faltar en mensajes encolados antes de este cambio (el Outbox procesa
+       // pendientes acumulados) — se degrada a "" en vez de fallar el mensaje.
        await hr.SendReminderAsync(r.GetProperty("Email").GetString()!,r.GetProperty("FullName").GetString()!,r.GetProperty("ProcessNumber").GetString()!,r.GetProperty("Title").GetString()!,
-        r.TryGetProperty("Description",out var descEl)?descEl.GetString():null,stoppingToken);
+        r.TryGetProperty("Description",out var descEl)?descEl.GetString():null,
+        r.TryGetProperty("Link",out var linkEl)?linkEl.GetString()??"":"",stoppingToken);
       else
        await hr.SendExternalInvitationAsync(r.GetProperty("Email").GetString()!,r.GetProperty("FullName").GetString()!,r.GetProperty("ProcessNumber").GetString()!,r.GetProperty("Title").GetString()!,r.GetProperty("Link").GetString()!,stoppingToken);
       m.Status="SENT";m.ProcessedAt=DateTimeOffset.UtcNow;}catch(Exception ex){m.AttemptCount++;m.Status=m.AttemptCount>=5?"FAILED":"PENDING";m.NextAttemptAt=DateTimeOffset.UtcNow.AddMinutes(Math.Pow(2,m.AttemptCount));logger.LogError(ex,"Outbox {Id} failed",m.OutboxMessageID);}}
