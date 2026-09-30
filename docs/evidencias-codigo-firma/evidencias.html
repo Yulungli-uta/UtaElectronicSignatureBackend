@@ -1,0 +1,41 @@
+<!doctype html><meta charset="utf-8"><style>body{margin:0;background:#1e1e1e;color:#d4d4d4;font:18px Consolas,monospace;padding:34px}h1{font:26px Segoe UI;color:#fff}p{font:15px Segoe UI;color:#9cdcfe}.path{color:#ce9178}.code{white-space:pre-wrap;line-height:1.65;border-left:4px solid #007acc;padding:18px;background:#252526}.red{display:inline-block;border:3px solid #ff453a;border-radius:5px;padding:2px 5px;margin:-2px} .kw{color:#c586c0}.type{color:#4ec9b0}.comment{color:#6a9955}</style>
+<section id="documentacion"><h1>1. Documentación del código fuente</h1><p class="path">UtaElectronicSignatureBackend/src/UtaElectronicSignature.Infrastructure/CallbackEndpointService.cs</p><div class="code"><span class="comment">/// &lt;summary&gt;</span>
+<span class="red"><span class="comment">/// Administracion de la tabla tbl_CallbackEndpoints: a que URL avisar por cada
+/// ClientId consumidor. Distinto de SigningProcessService, que resuelve el
+/// callback de un proceso puntual a partir de esta configuracion.</span></span>
+<span class="comment">/// &lt;/summary&gt;</span>
+<span class="kw">public sealed class</span> <span class="type">CallbackEndpointService</span> { ... }</div></section>
+<section id="funciones"><h1>2. Funciones reutilizables</h1><p class="path">UtaElectronicSignatureBackend/src/UtaElectronicSignature.Infrastructure/SigningProcessService.cs</p><div class="code"><span class="red"><span class="kw">public async Task</span>&lt;CreateProcessResponse&gt; CreateAsync(
+    CreateIntegrationRequest request, Guid key, string source, CancellationToken ct)</span>
+{
+    var requestHash = Convert.ToHexString(SHA256.HashData(...));
+    ...
+    return Map(process, 1);
+}</div></section>
+<section id="ciclos"><h1>3. Ciclos repetitivos reales</h1><p class="path">UtaElectronicSignatureBackend/src/UtaElectronicSignature.Infrastructure/SigningProcessService.cs</p><div class="code"><span class="red"><span class="kw">foreach</span> (var s <span class="kw">in</span> request.Signers)
+{
+    var participant = <span class="kw">new</span> SigningParticipant { FullName = s.FullName, Email = s.Email };
+    <span class="kw">if</span> (s.IsExternal) { ... }
+    process.Participants.Add(participant);
+}</span>
+
+<span class="red">process.Participants.Where(x =&gt; !x.IsExternal)</span></div></section>
+<section id="condicionales"><h1>4. Condicionales y validaciones</h1><p class="path">UtaElectronicSignatureBackend/src/UtaElectronicSignature.Infrastructure/SigningProcessService.cs</p><div class="code"><span class="red"><span class="kw">if</span> (request.Signers.Count == 0)
+    <span class="kw">throw new</span> ArgumentException("Debe existir al menos un firmante.");
+<span class="kw">if</span> (request.Process.MinimumRequiredSignatures &lt;= 0 ||
+    request.Process.MinimumRequiredSignatures &gt; request.Signers.Count(x =&gt; x.Required))
+    <span class="kw">throw new</span> ArgumentException("La cantidad mínima de firmas no es válida.");</span></div></section>
+<section id="tipado"><h1>5. Variables y tipado fuerte</h1><p class="path">HrFrontend/client/src/pages/electronicSignature/ExternalSignPage.tsx</p><div class="code"><span class="red"><span class="kw">type</span> FlowStep = "sign" | "open" | "confirm";
+<span class="kw">const</span> [certificateType, setCertificateType] =
+  useState&lt;FirmaEcCertificateType | undefined&gt;(undefined);</span>
+
+<span class="red"><span class="kw">interface</span> DocumentValidationResult { signers: ValidatedSigner[]; valid: boolean; }</span></div></section>
+<section id="react"><h1>6. IsPostBack no aplica: React + API</h1><p class="path">HrFrontend/client/src/pages/electronicSignature/SigningInboxPage.tsx</p><div class="code"><span class="red"><span class="kw">const</span> { data, isLoading, isError } = useQuery({
+  queryKey: ["signature-inbox"],
+  queryFn: () =&gt; SignatureProcessesAPI.inbox(),
+  refetchInterval: 10_000,
+});</span>
+
+<span class="red"><span class="kw">const</span> rows = data?.status === "success" ? data.data : [];</span>
+
+<span class="comment">// React administra estado; la API responde a peticiones HTTP.</span></div></section>
