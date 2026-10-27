@@ -22,5 +22,6 @@
     <ProjectReference Include="..\..\src\UtaElectronicSignature.Domain\UtaElectronicSignature.Domain.csproj" />
     <ProjectReference Include="..\..\src\UtaElectronicSignature.Contracts\UtaElectronicSignature.Contracts.csproj" />
     <ProjectReference Include="..\..\src\UtaElectronicSignature.FirmaEc\UtaElectronicSignature.FirmaEc.csproj" />
+    <ProjectReference Include="..\..\src\UtaElectronicSignature.Infrastructure\UtaElectronicSignature.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

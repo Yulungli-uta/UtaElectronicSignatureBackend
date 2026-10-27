@@ -96,3 +96,20 @@ public interface ICallbackEndpointService
     Task<CallbackEndpointResponse> UpdateAsync(long id, CallbackEndpointUpdateRequest request, CancellationToken ct);
     Task DeactivateAsync(long id, CancellationToken ct);
 }
+
+/// <summary>
+/// Reloj central (estándar "Fecha y hora UTA"): el "hoy"/"año" de negocio es el de Ecuador (America/Guayaquil, UTC-5,
+/// sin horario de verano) y lo decide el servidor. Las columnas datetimeoffset guardan instantes sin ambigüedad;
+/// este reloj se usa donde importa el día/año calendario de Ecuador (ej. numeración anual de procesos).
+/// </summary>
+public interface IAppClock
+{
+    /// <summary>Instante actual con el desfase de Ecuador (-05:00).</summary>
+    DateTimeOffset NowOffset { get; }
+
+    /// <summary>Día actual en Ecuador.</summary>
+    DateOnly Today { get; }
+
+    /// <summary>Zona horaria del sistema (Time:ZoneId, por defecto America/Guayaquil).</summary>
+    TimeZoneInfo Zone { get; }
+}

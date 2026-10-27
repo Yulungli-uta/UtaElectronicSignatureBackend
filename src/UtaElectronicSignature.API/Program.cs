@@ -26,6 +26,7 @@ builder.Services.AddEndpointsApiExplorer();builder.Services.AddSwaggerGen();
 builder.Services.AddProblemDetails();builder.Services.AddHttpContextAccessor();builder.Services.AddSignalR();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddDbContext<SignatureDbContext>(o=>o.UseSqlServer(builder.Configuration.GetConnectionString("SignatureDatabase")));
+builder.Services.AddSingleton(TimeProvider.System);builder.Services.AddSingleton<IAppClock,AppClock>();
 builder.Services.AddScoped<ICurrentUserService,CurrentUserService>();
 builder.Services.AddScoped<ISigningProcessService,SigningProcessService>();
 builder.Services.AddScoped<ICallbackEndpointService,CallbackEndpointService>();

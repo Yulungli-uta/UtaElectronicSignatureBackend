@@ -15,7 +15,8 @@ public sealed class SigningProcessService(
     IFirmaEcClient firmaEc,
     HrBackendClient hrBackend,
     IPdfSignatureValidator pdfValidator,
-    Microsoft.Extensions.Configuration.IConfiguration config) : ISigningProcessService
+    Microsoft.Extensions.Configuration.IConfiguration config,
+    IAppClock clock) : ISigningProcessService
 {
     public async Task<CreateProcessResponse> CreateAsync(CreateIntegrationRequest request, Guid key, string source, CancellationToken ct)
     {
@@ -34,8 +35,10 @@ public sealed class SigningProcessService(
             return Map(found,1);
         }
         await using var transaction=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,ct);
-        var year=DateTimeOffset.UtcNow.Year;
-        var next=await db.SigningProcesses.CountAsync(x=>x.CreatedAt.Year==year,ct)+1;
+        var year=clock.Today.Year;
+        var yearStart=new DateTimeOffset(year,1,1,0,0,0,clock.Zone.GetUtcOffset(new DateTime(year,1,1)));
+        var yearEnd=yearStart.AddYears(1);
+        var next=await db.SigningProcesses.CountAsync(x=>x.CreatedAt>=yearStart&&x.CreatedAt<yearEnd,ct)+1;
         var creatorEmail=request.Metadata?.GetValueOrDefault("creatorEmail")??current.Email??throw new InvalidOperationException("El creador no tiene correo institucional.");
         var process=new SigningProcess{ProcessNumber=$"FIR-{year}-{next:000000}",Title=request.Process.Title,Description=request.Process.Description,CreatorEmail=creatorEmail,
             WorkflowType=Enum.Parse<WorkflowType>(request.Process.WorkflowType,true),Status=ProcessStatus.InProgress,

@@ -61,9 +61,9 @@ internal static class InstitutionalProvisioner
                         Description=@Description,
                         IsActive=1,
                         IsDeleted=0,
-                        ModifiedAt=SYSUTCDATETIME(),
+                        ModifiedAt=SYSDATETIME(),
                         ModifiedBy=@Actor,
-                        SecretRotatedAt=SYSUTCDATETIME(),
+                        SecretRotatedAt=SYSDATETIME(),
                         SecretRotatedBy=@Actor,
                         SuspendedAt=NULL,
                         SuspendedBy=NULL
@@ -76,7 +76,7 @@ internal static class InstitutionalProvisioner
                          IsDeleted,CreatedAt,CreatedBy,ModifiedAt,ModifiedBy)
                     VALUES
                         (NEWID(),@Name,@ClientId,@SecretHash,@Description,1,
-                         0,SYSUTCDATETIME(),@Actor,SYSUTCDATETIME(),@Actor);
+                         0,SYSDATETIME(),@Actor,SYSDATETIME(),@Actor);
                 END;
                 """,
                 ("@ClientId", "uta-signature"),
@@ -98,7 +98,7 @@ internal static class InstitutionalProvisioner
                         Extension='.pdf',
                         MaxSizeMB=15,
                         Status=1,
-                        UpdatedAt=SYSUTCDATETIME()
+                        UpdatedAt=SYSDATETIME()
                     WHERE Code=@Code;
                 END
                 ELSE

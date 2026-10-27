@@ -22,3 +22,8 @@
 - The HTTPS proxy responds successfully, while UTA system/version records and the .NET callback remain pending.
 - After the host was expanded to 8 GiB RAM, FirmaEC was resized and verified: WildFly has a 2.25 GiB hard limit with a 1.25 GiB JVM heap, PostgreSQL has a 640 MiB hard limit with 128 MiB shared buffers, container swap is disabled, and more than 5.5 GiB remained available after restart.
 - WildFly management can be exposed temporarily through `https://portal.uta.edu.ec/firmaec-console/` with simultaneous source-IP, expiration-time and WildFly credential controls; port 9990 remains bound exclusively to host loopback and the proxy is automatically removed. WildFly explicitly allows only `https://portal.uta.edu.ec` as the management origin so authenticated console POST requests work through Apache.
+
+## 2026-10-26 — Estándar de fecha y hora
+- `IAppClock` (Application) + `AppClock` (Infrastructure, `Time:ZoneId`); el año del número de proceso usa el año de Ecuador y cuenta por rango de instantes (las columnas datetimeoffset mezclan offsets +00:00 y -05:00).
+- `InstitutionalProvisioner` escribía `SYSUTCDATETIME()` en `auth.tbl_Applications` y `HR.TBL_DirectoryParameters` (datetime2 en hora de Ecuador): ahora `SYSDATETIME()`; las 3 fechas ya escritas por el despliegue del 2026-07-30 se corrigieron (-5 h) con respaldo.
+- Pendiente de despliegue: reiniciar el servicio y agregar `Time:ZoneId` al appsettings del servidor (appsettings*.json está en .gitignore).
