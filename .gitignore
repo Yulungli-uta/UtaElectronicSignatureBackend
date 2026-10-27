@@ -486,3 +486,8 @@ $RECYCLE.BIN/
 .env
 appsettings*.json
 !appsettings.Example.json
+
+# Va a contener los secretos reales de IIS (FirmaEc ApiKey/CallbackApiKey,
+# ConnectionStrings, RepositoryUta ServiceClientSecret) una vez llenado —
+# ver docs/migracion-iis-plan-2026-09-30 en memoria.
+docs/migracion-iis/set-secrets-env-vars.ps1
